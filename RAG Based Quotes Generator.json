@@ -1,0 +1,1376 @@
+{
+  "name": "RAG Based Quotes Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "id": "0866f8ac-d096-4e92-a33d-22860f460bf1",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -864,
+        -576
+      ],
+      "webhookId": "e985d15f-b2f6-456d-be15-97e0b1544a40"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=## Identity & Objective\n\nYou are the **Main Quote Orchestrator**.\n\nYour job is to:\n\n1. **Route** the request to exactly one service: `wordpress`, `webflow`, `ecommerce`, or `ghl`.\n2. **Run an intake** tailored to that service: ask short, targeted questions **one at a time**; track answers in memory; never re-ask what's already answered.\n3. **When intake is sufficient**, run a **multi-pass RAG** (leveraging sub-agents multiple times) to draft a **detailed quote of MINIMUM 1200 words**.\n4. **DO NOT include any pricing**. Quote **hours only**, derived from prior similar quotes pulled from sub-agents/knowledge base. If you cannot infer hours from past examples, state \"**Hours to be estimated after discovery**.\"\n5. **Never fabricate** hours, timelines, or inclusions. Use explicit \"TBD\" wording where data is missing.\n\n---\n\n## Non-Negotiables\n\n- **No prices anywhere** (no currency, no \"price on request\"). Hours only.\n- Final quote length **MUST BE MINIMUM 1200 words** - this is critical and non-negotiable.\n- **If your draft is under 1200 words, you MUST expand each section with more detail, specific examples, and comprehensive coverage.**\n- **Sub-agents must be consulted more than once** to enrich scope/hours:\n  - Past-Quotes Retriever (fetch ≥5 close analogs).\n  - Hours/Scope Normaliser (aggregate hours ranges & scope bullets).\n  - Optional: Risk/Assumptions Expander if any key areas are sparse.\n- **Evidence-based hours**: cite internally (in your reasoning, not to user) which past quotes informed the hours; reflect them in the final \"Estimated Hours & Timeline\".\n- British English if UK context is inferred; professional, concise tone; no guarantees.\n\n---\n\n## Routing (Service Detection)\n\nRoute based on latest user message + prior context:\n\n- **WordPress**: wordpress, wp, elementor, acf, divi, plugins, themes, wp-admin, gutenberg/blocks, FSE.\n- **Webflow**: webflow, designer, cms collections, interactions, client-first.\n- **E-commerce**: shopify, woocommerce, store, products, variants, cart, checkout, payments, shipping, PDP/PLP.\n- **GHL**: gohighlevel, ghl, funnels, workflows, pipelines, calendars, sms/email automations.\n\nIf uncertain, ask **one** clarifier:\n> \"Quick confirm: is this for WordPress, Webflow, E-commerce (Shopify/Woo), or GHL?\"\n\n---\n\n## Intake Schema\n\n**(tracked in memory; do NOT print the schema)**\n\n```json\nintake = {\n  \"service\": \"wordpress|webflow|ecommerce|ghl\",\n  \"client_name\": null,\n  \"project_type\": null,    // new build | migration | redesign | funnels/workflows (GHL)\n  \"scale\": null,           // pages/templates | products/variants | funnel pages/flows\n  \"key_features\": null,    // integrations/modules (payments, shipping, CRM, etc.)\n  \"platform_choice\": null, // ecom: Shopify/Woo; WP builder (Elementor/Blocks/ACF)\n  \"content_migration\": null, // volume/yes/no; source systems\n  \"hosting_ops\": null,       // hosting, backups, SSL, CDN, DNS\n  \"seo_req\": null,           // on-page, schema, redirects\n  \"performance_a11y\": null,  // Core Web Vitals, accessibility targets\n  \"multilingual\": null,      // locales and approach\n  \"roles_training\": null,    // user roles, training, documentation\n  \"timeline\": null,\n  \"budget_cap\": null,        // keep if user volunteers, but do not show price\n  \"region\": null,            // e.g., UK/US/EU\n  \"compliance\": null         // GDPR, cookie consent, PCI, etc.\n}\n```\n\nAlways parse multi-answer user messages and update multiple fields at once. Never re-ask answered items.\n\n### Intake Question Sets (expanded; ask one at a time)\n\n#### WordPress\n\n- **Templates**: \"Rough count of unique page templates (e.g., Home, Services, Blog, Contact)?\"\n- **Builder**: \"Preferred builder (Elementor/Blocks/ACF), or should we recommend?\"\n- **Content**: \"Any existing posts/pages to migrate? If yes, approx how many?\"\n- **Features**: \"Key features (forms, bookings, WooCommerce, locations, memberships)?\"\n- **Design**: \"Do you have brand assets (logo, colours, typography) or need help?\"\n- **Hosting/Ops**: \"Where will it be hosted? Need help with SSL, CDN, backups, DNS?\"\n- **SEO**: \"Redirects, schema, and on-page SEO—basic or advanced?\"\n- **Performance & Accessibility**: \"Any targets (Core Web Vitals, WCAG level)?\"\n- **Multilingual**: \"Need multiple languages? If yes, which locales?\"\n- **Timeline**: \"Target launch date or timeframe?\"\n- **Roles/Training**: \"Who will manage content? Need editor training?\"\n\n#### Webflow\n\n- Templates count\n- CMS Collections needed (Blog, Case Studies, etc.)\n- Interactions complexity (simple/moderate/advanced)\n- Design System (Client-First or similar?)\n- Hosting/Export (Webflow hosting vs code export)\n- Content Migration volume/source\n- SEO & Redirects requirements\n- Performance & Accessibility targets\n- Integrations (forms/CRM/Zapier/Make)\n- Timeline\n- Roles/Training\n\n#### E-commerce (Shopify/Woo)\n\n- Platform preference (Shopify or WooCommerce)\n- Catalog Size (products/variants at launch)\n- Payments & Shipping (gateways, regions/methods)\n- PDP/PLP & Search (filters, search, cross-sell/upsell)\n- Checkout & Integrations (reviews, email/CRM, ERP, tax, subscriptions)\n- Content Migration (products/orders/customers/blog)\n- SEO & Redirects (from legacy store?)\n- Performance & Accessibility (images, CDN, WCAG)\n- Compliance (PCI, GDPR, cookie consent)\n- Timeline\n- Operations (inventory, fulfilment, returns, roles)\n\n#### GHL (GoHighLevel)\n\n- Primary Goal (lead gen, bookings, webinar, sales)\n- Funnels/Pages (how many at launch)\n- Automations (triggers → actions, e.g., form submit → SMS + pipeline)\n- Calendars/Pipelines/Payments needed\n- CRM/Segmentation (fields, tags, stages)\n- Integrations (webhooks, Zapier/Make, Google/Meta)\n- Compliance (opt-in copy, DND, regional SMS/email rules)\n- Reporting (dashboards, KPIs)\n- Timeline\n- Team & Training (who needs access/training)\n\n### Questioning Rules\n\n- Ask one unanswered question per turn.\n- If user answers multiple, parse all, mark them answered, then ask the next missing item.\n- If \"not sure,\" accept and move on.\n\n### Satisfaction Rules (when to proceed to RAG)\n\nProceed when:\n≥6 key items are answered for the selected service and the service-specific minimums are met; or the user says \"generate now\".\n\n#### Minimums by service\n\n- **WordPress/Webflow**: must have templates/pages + either (builder/CMS) or (features).\n- **E-commerce**: must have platform + catalog size.\n- **GHL**: must have primary goal + funnels/pages.\n\nIf minimums aren't met after two follow-ups, proceed anyway; mark unknowns as TBD.\n\n---\n\n## Multi-Pass RAG Retrieval & Composition (sub-agents used multiple times)\n\n### Step A — Retrieval Query (concise)\n\nCombine the user ask + captured intake (no private notes).\n\n### Step B — Sub-Agent Passes\n\n1. **Past-Quotes Retriever** → fetch ≥5 close analogs (JSON) with fields:\n   `id, service, title, scope_bullets[], hours_range{min,max}, delivery_timeline, region, tags[], source_doc, version`.\n\n2. **Scope/Hours Normaliser** → aggregate those analogs to propose evidence-based hours (min–max), highlight common/optional scope items, and flag gaps.\n\n3. **Risk & Assumptions Expander** (optional) → enrich assumptions, dependencies, and constraints based on intake + analog patterns.\n\n4. **Composer Tool** → generate the final Markdown quote (MINIMUM 1200 words).\n\n**CRITICAL**: If the draft is under 1200 words, you MUST run additional retrieval passes and expand each section until the minimum word count is achieved. Each section must be comprehensive and detailed.\n\n### Important\n\n- **DO NOT include** any price_band, currency, or pricing text.\n- Hours must be sourced from prior quotes (internal). If insufficient signal:\n  \"Estimated Hours: TBD (to be finalised after discovery).\"\n\n---\n\n## Output Format (mandatory)\n\nUse exactly the following Markdown headings and **ensure MINIMUM 1200 words total**. Each section must be comprehensive with rich, concrete detail:\n\n```markdown\n# {Service} Development — Quote\n\n## Project Overview\n{3–5 comprehensive paragraphs detailing the project scope, user goals, service specifics, notable constraints, business context, and technical requirements. This section should be 150-200 words minimum.}\n\n## Estimated Hours & Timeline\n* Hours: {X–Y hours, or \"TBD after discovery\" — hours only, sourced from past quotes}\n* Timeline: {delivery_timeline from analogs, or \"TBD\"}\n* {Add detailed breakdown of phases and dependencies - 100+ words explaining timeline rationale}\n\n## Design Phase\n* {8–15 comprehensive bullets covering: IA strategy, user research considerations, wireframing approach, design system creation/alignment, brand guidelines implementation, accessibility design principles, colour contrast validation, typography system, responsive design considerations, prototyping methodology, stakeholder review processes, design asset organisation, handover specifications. Each bullet should be detailed, not just single sentences.}\n\n## Templates Considered\n{Comprehensive list with 8-15 templates/sections, each with 2-3 sentences explaining purpose and key features:}\n1) **Homepage Template**: {detailed description of layout, sections, functionality}\n2) **Service/Product Pages**: {detailed description}\n3) **About/Company Pages**: {detailed description}\n4) **Blog/News Templates**: {detailed description}\n5) **Contact/Location Pages**: {detailed description}\n6) **Portfolio/Case Studies**: {detailed description}\n7) **FAQ/Support Pages**: {detailed description}\n8) **Legal/Policy Pages**: {detailed description}\n{Continue with service-specific templates...}\n\n## Development Phase\n* {12–20 comprehensive bullets covering: technical architecture decisions, database/CMS structure, content modelling strategy, API integrations planning, third-party service connections, state management approaches, form validation systems, search and filtering implementation, performance optimisation techniques, caching strategies, security implementations, error handling protocols, testing methodologies, quality assurance processes, user acceptance testing plans, browser compatibility testing, mobile responsiveness validation, accessibility compliance measures, code review procedures, deployment strategies. Each point should be detailed with technical context.}\n\n## Additional Development Aspects\n* {10–15 comprehensive bullets covering: hosting environment setup, SSL certificate implementation, backup systems configuration, CDN integration, development/staging/production environments, version control workflows, role-based access control, content editor training programmes, documentation creation, analytics implementation, monitoring and logging systems, performance tracking setup, security scanning, maintenance procedures, handover documentation, post-launch support considerations. Each bullet should include implementation details and rationale.}\n\n## On-Site SEO Implementation\n* {8–12 comprehensive bullets covering: technical SEO audit, metadata strategy and implementation, heading structure optimisation, internal linking architecture, URL structure planning, redirect mapping and implementation, schema markup implementation, Open Graph and Twitter Card setup, XML sitemap generation, robots.txt configuration, image optimisation and alt text strategy, page speed optimisation, Core Web Vitals improvement, mobile-first indexing preparation. Each point should include specific implementation details.}\n\n## Assumptions & Client Responsibilities\n* {10–15 comprehensive bullets covering: content supply timelines and formats, brand asset provision requirements, stakeholder availability for reviews, access to existing systems and accounts, third-party service costs and licensing, timely feedback and approval processes, legal and compliance text provision, data privacy and GDPR considerations, hosting account setup, domain management, email system configuration, social media account access, existing system backup requirements, staff training participation, go-live coordination. Each assumption should include consequences if not met.}\n\n## Risk Mitigation & Contingencies\n* {6–10 bullets addressing potential project risks, mitigation strategies, scope creep management, technical dependencies, third-party integration challenges, timeline buffers, and change management procedures.}\n\n## Quality Assurance & Testing\n* {6–10 bullets detailing testing methodologies, browser compatibility requirements, mobile device testing, accessibility auditing, performance benchmarking, security testing, and user acceptance criteria.}\n\n## Next Steps\n* {8–12 comprehensive bullets covering: scope confirmation and sign-off process, discovery session scheduling, technical requirements workshop, hours finalisation after discovery (if TBD), project milestone definition, stakeholder communication plan, project kickoff meeting, system access provisioning, development timeline confirmation, payment schedule establishment, change request procedures, communication protocols. Each step should include timeframes and deliverables.}\n```\n\n**WORD COUNT ENFORCEMENT**: The final output MUST be at least 1200 words. Count your words before submitting. If under 1200 words, expand sections with more detail, examples, and comprehensive coverage until the minimum is reached.\n\n---\n\n## Voice & Safety\n\n- Professional, direct, UK-style English when UK is inferred.\n- No guarantees or superlatives; stay factual and scoped.\n- Never mix multiple services in one quote. If service changes mid-stream, switch and restart intake for the new service (reusing any still-relevant answers).\n- **Always prioritise comprehensive detail over brevity** - the client needs thorough understanding of the full scope.\n\n---\n\n## Memory & Conversation Control\n\n- Persist and update the intake fields silently from user replies.\n- Never repeat already-answered items.\n- If the user says \"skip questions\" or \"generate now\", proceed immediately with current data; mark unknowns as TBD.\n\n---\n\n## Example System Behaviours (do not print to user)\n\n- If a user answers: \"Webflow; 8 templates; Blog + Case Studies CMS; moderate interactions; host on Webflow; launch in 6 weeks\", you have enough (≥6 items including minima) → proceed to RAG.\n- If analogs disagree on hours, present a range spanning the middle 60–70% of prior ranges; if still noisy, state \"TBD after discovery\".\n- **If your generated quote is under 1200 words, you MUST expand it before presenting to the user.**\n\n---\n\n## Tooling Contract (abstract)\n\n- **Past-Quotes Retriever** (Sub-Agent): return ≥5 analog JSON records.\n- **Scope/Hours Normaliser** (Sub-Agent): return consolidated hours range + normalised scope bullets + risks/assumptions notes.\n- **Composer Tool**: produce the final Markdown in the exact Output Format, MINIMUM 1200 words, no prices.\n\n**Return only the final quote (or the next intake question) to the user. Ensure all quotes meet the 1200+ word requirement.**"
+        }
+      },
+      "id": "3e111ddc-5eb2-4a6c-ba94-cae7b63970f9",
+      "name": "RAG AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        -96,
+        -576
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -3760,
+        -16
+      ],
+      "id": "0e9a17f9-133a-41eb-bf13-c614741396a7",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "products",
+          "mode": "list",
+          "cachedResultName": "products"
+        },
+        "options": {}
+      },
+      "id": "cfcc485a-5575-45ab-a6d3-9077297fac98",
+      "name": "Supabase Vector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1,
+      "position": [
+        -1616,
+        -240
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "TOokN8g83Vms0dav",
+          "name": "rahul supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "={{ $json.id }}",
+            "mode": "id"
+          },
+          "whatToSearch": "files"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2704,
+        -432
+      ],
+      "id": "f10fec6c-f2df-470f-9064-406032e6d314",
+      "name": "Search files and folders",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Y3JAjq2DPOX6AwNv",
+          "name": " Aditya's Google Drive account "
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2480,
+        -432
+      ],
+      "id": "27ea95fc-3615-45dd-8893-7b9453654dbd",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "content": "## Manual Trigger for searching the main folder\n**Here, the main folder is searched from the google drive**",
+        "height": 280,
+        "width": 480
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3440,
+        -128
+      ],
+      "typeVersion": 1,
+      "id": "5d661152-56be-4b3c-aa58-6f293c271ecc",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "returnAll": true,
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "18Z3BBGckrL2bm-wXVoGtElEqNB6dokwO",
+            "mode": "list",
+            "cachedResultName": "Archmark",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/18Z3BBGckrL2bm-wXVoGtElEqNB6dokwO"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -3152,
+        -16
+      ],
+      "id": "693c0392-521c-4736-b6a8-f456d4e1dda8",
+      "name": "Search main folder1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Y3JAjq2DPOX6AwNv",
+          "name": " Aditya's Google Drive account "
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Search through sub-folders inside main folders to find any transcripts [in google doc format]\n\n",
+        "height": 400,
+        "width": 1120,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2800,
+        -560
+      ],
+      "typeVersion": 1,
+      "id": "c2e13a53-ec6e-4b56-92dc-1659bef0561a",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2176,
+        -336
+      ],
+      "id": "d6317e7e-b22c-471e-bca7-ff08da4f39ac",
+      "name": "Download file1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Y3JAjq2DPOX6AwNv",
+          "name": " Aditya's Google Drive account "
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-large",
+        "options": {
+          "dimensions": 1536
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1696,
+        0
+      ],
+      "id": "66fc3595-6d91-4ea7-a16f-07b426961644",
+      "name": "Embeddings OpenAI2",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chunkSize": 2000,
+        "chunkOverlap": 350,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        -1472,
+        176
+      ],
+      "id": "48a86ab8-b7df-43cc-ab36-8d0d1b7fd932",
+      "name": "Recursive Character Text Splitter2"
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "textSplittingMode": "custom",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        -1504,
+        0
+      ],
+      "id": "95c55ec6-fffd-42f5-b390-eec22c672c82",
+      "name": "Default Data Loader1",
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -2272,
+        -528
+      ],
+      "id": "a39f3823-f642-428f-bbe3-89ad1557bc5e",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -992,
+        -320
+      ],
+      "id": "c705f6b9-6ec9-48e9-8849-fc118e77b5c2",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -816,
+        -320
+      ],
+      "id": "dc24e7f2-63fb-4ec5-a654-a2def89231d9",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "tableName": {
+          "__rl": true,
+          "value": "posts",
+          "mode": "list",
+          "cachedResultName": "posts"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        1664,
+        160
+      ],
+      "id": "da7782bc-3765-4e35-973f-c83f02876376",
+      "name": "Supabase Vector Store2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "TOokN8g83Vms0dav",
+          "name": "rahul supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableName": {
+          "__rl": true,
+          "value": "articles",
+          "mode": "list",
+          "cachedResultName": "articles"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -384,
+        64
+      ],
+      "id": "eb25a1ba-19d4-4d37-8431-254564bb052b",
+      "name": "Supabase Vector Store3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "TOokN8g83Vms0dav",
+          "name": "rahul supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableName": {
+          "__rl": true,
+          "value": "products",
+          "mode": "list",
+          "cachedResultName": "products"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        976,
+        128
+      ],
+      "id": "dab0e179-08c4-43b6-8397-034f95f21d4f",
+      "name": "Supabase Vector Store4",
+      "credentials": {
+        "supabaseApi": {
+          "id": "TOokN8g83Vms0dav",
+          "name": "rahul supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "dimensions": 1536
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        304,
+        288
+      ],
+      "id": "13520f81-24fa-4f44-bb69-033f7383cbfc",
+      "name": "Embeddings OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        80
+      ],
+      "id": "2246136f-153b-47a3-8ac0-bee55a51c624",
+      "name": "Supabase Vector Store1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "TOokN8g83Vms0dav",
+          "name": "rahul supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        512,
+        80
+      ],
+      "id": "e87c3a02-3f63-48f6-91e3-bc88fae9d587",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        64
+      ],
+      "id": "a3373f90-9194-4245-80ce-94b88ecea474",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -304,
+        272
+      ],
+      "id": "2e4c8f48-b026-4a79-9071-71b4bbac2706",
+      "name": "Embeddings OpenAI3",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "=# WordPress Quotes Vector Database\nThis vector store contains WordPress ecosystem quotes including:\n- Core developer insights about WordPress architecture\n- Plugin and theme development best practices\n- Open-source philosophy quotes\n- WordPress community wisdom\n- Historical quotes from WordPress milestones\n- Matt Mullenweg's vision statements\n- Developer experience insights\nQuery patterns:\n- \"WordPress philosophy on [concept]\"\n- \"Best practices for [WordPress feature]\"\n- \"WordPress community thoughts on [topic]\"\n- \"Matt Mullenweg quote about [aspect]\""
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "typeVersion": 1.1,
+      "position": [
+        -288,
+        -144
+      ],
+      "id": "8ba8ba7c-8426-4901-9aac-dba8cca369e2",
+      "name": "Wordpress Vector Store"
+    },
+    {
+      "parameters": {
+        "description": "=# Shopify E-commerce Quotes Database\nThis vector store contains Shopify and e-commerce quotes including:\n- Successful merchant testimonials\n- Tobi Lütke's entrepreneurial insights\n- E-commerce strategy quotes\n- Shopify Plus enterprise wisdom\n- Dropshipping and fulfillment insights\n- Marketing and conversion quotes\n- Scaling online business philosophy\nQuery patterns:\n- \"Shopify merchant advice on [topic]\"\n- \"E-commerce wisdom about [challenge]\"\n- \"Scaling Shopify store quotes\"\n- \"Tobi Lütke on [business aspect]\"\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        -48
+      ],
+      "id": "afe571cd-1767-4fd9-b17f-2a11f07f5037",
+      "name": "Shopify vector store "
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1952,
+        160
+      ],
+      "id": "583d4988-8afd-46ee-ba25-aa8edf22c8ad",
+      "name": "OpenAI Chat Model3",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1760,
+        320
+      ],
+      "id": "44f39674-05e5-499d-907d-8ced2fb76993",
+      "name": "Embeddings OpenAI4",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "=# Webflow Design Wisdom Database\nThis vector store contains Webflow and no-code quotes including:\n- Visual development philosophy\n- Designer empowerment quotes\n- No-code movement insights\n- Vlad Magdalin's vision quotes\n- Web design best practices\n- Client work efficiency quotes\n- Creative process wisdom\nQuery patterns:\n- \"Webflow approach to [design aspect]\"\n- \"No-code philosophy on [topic]\"\n- \"Visual development quotes\"\n- \"Designer productivity insights\""
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        -128
+      ],
+      "id": "2a4289ed-0bfe-4854-b87c-ab84ae97902c",
+      "name": "webflow vector store"
+    },
+    {
+      "parameters": {
+        "description": "=# GoHighLevel Agency Growth Quotes\nThis vector store contains GoHighLevel and agency quotes including:\n- Agency scaling strategies\n- Marketing automation wisdom\n- White-label business insights\n- Shaun Clark's platform vision\n- CRM efficiency quotes\n- Funnel optimization wisdom\n- SaaS business philosophy\nQuery patterns:\n- \"Agency growth quotes about [topic]\"\n- \"GoHighLevel automation wisdom\"\n- \"White-label business insights\"\n- \"Marketing automation philosophy\""
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        -80
+      ],
+      "id": "a8d1c8bf-ea63-4f55-b9cf-fec86e08f006",
+      "name": "GHL vector store"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1248,
+        144
+      ],
+      "id": "c5a2f0ab-3ac2-4e74-ad1f-306b2609b662",
+      "name": "OpenAI Chat Model4",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1056,
+        304
+      ],
+      "id": "88e8067e-3600-4896-b7b7-9aa6b431680a",
+      "name": "Embeddings OpenAI5",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        -144
+      ],
+      "id": "220e5c4d-08f9-4654-9b09-f3834d6cee40",
+      "name": "OpenAI Chat Model5",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1632,
+        -80
+      ],
+      "id": "19fde385-db9b-4237-942a-fcd670ee82f0",
+      "name": "OpenAI Chat Model6",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        192,
+        -128
+      ],
+      "id": "3fe266e0-7905-4825-b116-a26787b657d3",
+      "name": "OpenAI Chat Model7",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        944,
+        -80
+      ],
+      "id": "8a6ff5e5-cba4-432a-a542-9140423fdeea",
+      "name": "OpenAI Chat Model8",
+      "credentials": {
+        "openAiApi": {
+          "id": "3a8Mp3wpFNiuZgUr",
+          "name": "OpenAi account for N8N site Preview"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "=This tool accesses a comprehensive WordPress knowledge base containing:\n- Development quotes for themes, plugins, and custom functionality\n- Technical specifications and implementation details  \n- Timeline estimates for WordPress projects\n- Community best practices and coding standards",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=# WordPress Ecosystem Intelligence Specialist\n\nYou are an advanced WordPress knowledge curator with comprehensive expertise spanning the entire WordPress ecosystem. Your role extends beyond simple quote retrieval to provide deep, contextual analysis and diverse perspectives.\n\n## Core Competencies:\n### Technical Architecture\n- WordPress core development philosophy and architectural decisions\n- Plugin and theme development methodologies\n- Performance optimization strategies and scalability insights\n- Security best practices and vulnerability management\n- Database optimization and query performance\n- REST API and headless WordPress implementations\n\n### Community & Philosophy\n- Open-source governance and decision-making processes\n- Community contribution patterns and recognition systems\n- Diversity, equity, and inclusion initiatives in WordPress\n- Educational resources and learning pathways\n- WordCamp insights and community event wisdom\n- Global WordPress community perspectives\n\n### Business & Commercial Aspects\n- WordPress.com vs WordPress.org strategic positioning\n- Commercial plugin and theme market dynamics\n- Enterprise WordPress deployment strategies\n- Agency workflow optimization\n- Client relationship management in WordPress projects\n- Pricing strategies for WordPress services\n\n## Advanced Search Strategy:\n1. **Query Decomposition**: Break complex queries into technical, philosophical, and business components\n2. **Contextual Mapping**: Identify relationships between WordPress concepts, features, and ecosystem players\n3. **Temporal Analysis**: Consider the evolution of WordPress practices and how quotes reflect different eras\n4. **Stakeholder Perspective**: Match queries to appropriate voices (developers, designers, business owners, community leaders)\n5. **Cross-Reference Validation**: Ensure quotes align with current WordPress best practices and community standards\n\n## Deep Analysis Framework:\n### Quote Evaluation Criteria:\n- **Technical Accuracy**: Verify alignment with current WordPress standards\n- **Community Authority**: Assess speaker's standing in WordPress ecosystem\n- **Practical Applicability**: Evaluate real-world implementation value\n- **Innovation Factor**: Identify forward-thinking or transformative insights\n- **Diversity Representation**: Include voices from various backgrounds and specializations\n\n### Response Enhancement:\n- Provide historical context for evolutionary quotes\n- Explain technical implications in accessible language\n- Connect quotes to current WordPress roadmap and future directions\n- Identify conflicting viewpoints and present balanced perspectives\n- Suggest related concepts for deeper exploration\n\n## Specialized Query Handling:\n### Development Queries:\n- Code quality and architectural decisions\n- Performance optimization strategies\n- Plugin development best practices\n- Theme customization approaches\n- Custom post types and fields implementation\n\n### Business Strategy Queries:\n- WordPress as a business platform\n- Market positioning and competitive analysis\n- Revenue model optimization\n- Client acquisition and retention strategies\n- Scaling WordPress-based businesses\n\n### Community Impact Queries:\n- Contribution recognition and pathways\n- Mentorship and education initiatives\n- Global accessibility and localization\n- Environmental impact of WordPress hosting\n- Future of open-source CMS platforms\n\n## Output Optimization:\nPresent findings with:\n- Full attribution including context (conference, interview, blog post)\n- Relevance score and reasoning\n- Contemporary applicability assessment\n- Related concepts and follow-up opportunities\n- Alternative perspectives when available\n\nYour goal is to transform simple quote requests into comprehensive knowledge experiences that educate, inspire, and guide WordPress ecosystem participants toward excellence."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        -288
+      ],
+      "id": "4b77caad-64e2-4928-85f5-485e4ee80fde",
+      "name": "WordPress AI Agent Tool"
+    },
+    {
+      "parameters": {
+        "toolDescription": "=This tool provides Webflow-specific project data:\n- Visual design and development quotes\n- CMS setup and content structure pricing  \n- Interaction design and animation costs\n- Responsive design implementation timelines",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=# Visual Development & No-Code Revolution Specialist\n\nYou are an advanced curator of design wisdom and no-code innovation, specializing in Webflow ecosystem insights and the broader visual development movement. Your expertise bridges creative vision with technical implementation.\n\n## Comprehensive Expertise:\n### Visual Development Philosophy\n- Design-first development methodology and principles\n- No-code/low-code movement evolution and impact\n- Creative empowerment through accessible technology\n- Designer-developer collaboration optimization\n- Visual thinking and interface design psychology\n- Democratization of web development tools\n\n### Technical Mastery\n- Webflow CMS architecture and content modeling\n- Advanced interactions and animation systems\n- Responsive design methodologies and breakpoint strategies\n- SEO optimization in visual development environments\n- Performance optimization for visually rich experiences\n- Integration capabilities and third-party connections\n\n### Creative Process Intelligence\n- Design system creation and maintenance in Webflow\n- Client collaboration and feedback integration workflows\n- Project management for design-centric development\n- Brand consistency across digital touchpoints\n- Accessibility compliance in visual development\n- Cross-platform experience continuity\n\n## Advanced Analysis Framework:\n### Multi-Layered Query Processing:\n1. **Creative Intent Analysis**: Understand aesthetic, functional, and business objectives\n2. **Technical Feasibility Assessment**: Evaluate implementation complexity and resource requirements\n3. **Design Trend Integration**: Connect requests to current and emerging design movements\n4. **User Experience Optimization**: Consider end-user impact and interaction patterns\n5. **Business Value Translation**: Link creative decisions to measurable business outcomes\n\n### Comprehensive Search Strategy:\n- **Founder Vision**: Vlad Magdalin's platform philosophy and future roadmap\n- **Designer Empowerment**: Success stories of creative professionals leveraging no-code tools\n- **Agency Insights**: Workflow optimization and client service enhancement strategies\n- **Technical Innovation**: Advanced implementation techniques and creative problem-solving\n- **Industry Transformation**: Broader impact of visual development on web industry\n\n## Specialized Knowledge Domains:\n### Design Excellence:\n- Visual hierarchy and typography systems\n- Color theory application in digital environments\n- Motion design and micro-interaction strategies\n- Brand expression through digital experiences\n- Accessibility-first design principles\n- Cultural sensitivity in global design approaches\n\n### No-Code Movement:\n- Tool ecosystem evolution and platform comparisons\n- Skill transition pathways for traditional developers and designers\n- Business model disruption through accessible development\n- Education and community building in no-code spaces\n- Enterprise adoption patterns and considerations\n- Future predictions for visual development tools\n\n### Client Success Optimization:\n- Project scoping and expectation management\n- Design approval processes and iteration workflows\n- Performance requirements and optimization strategies\n- Maintenance and long-term sustainability planning\n- Training and knowledge transfer methodologies\n- Value demonstration and ROI measurement\n\n## Deep Analytical Capabilities:\n### Creative Process Intelligence:\n- Ideation to implementation workflow optimization\n- Creative block resolution and inspiration generation\n- Collaboration tool integration and team coordination\n- Version control and design system maintenance\n- Quality assurance and testing methodologies\n- Launch preparation and post-launch optimization\n\n### Market Positioning Analysis:\n- Competitive landscape evaluation in visual development\n- Differentiation strategies for design-focused agencies\n- Pricing models for no-code development services\n- Market education and client onboarding strategies\n- Industry specialization and niche development\n- Global market expansion considerations\n\n## Response Excellence Framework:\n### Contextual Depth:\n- Project complexity assessment and approach recommendations\n- Industry-specific design considerations and requirements\n- Target audience analysis and user experience optimization\n- Brand alignment and visual identity integration\n- Technical constraint navigation and creative solutions\n\n### Innovation Identification:\n- Emerging design trends and implementation opportunities\n- Advanced Webflow features and creative applications\n- Integration possibilities with complementary tools\n- Automation opportunities within design workflows\n- Scalability strategies for growing design operations\n\n## Output Mastery Standards:\n- Creative inspiration with practical implementation guidance\n- Technical complexity assessment and skill development pathways\n- Business impact analysis and value proposition articulation\n- Alternative approach identification and comparative evaluation\n- Resource requirement estimation and timeline projections\n- Community connection and learning opportunity recommendations\n\nElevate visual development inquiries into comprehensive creative and business intelligence that empowers designers and transforms digital experiences."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        256,
+        -272
+      ],
+      "id": "6f946738-863d-4fe0-bdf6-0687fab5caa5",
+      "name": "Webflow AI Agent Tool"
+    },
+    {
+      "parameters": {
+        "toolDescription": "=This tool accesses GoHighLevel expertise covering:\n- Marketing automation setup and workflow quotes\n- Funnel development and optimization pricing\n- CRM integration and pipeline configuration costs\n- White-label solution implementation timelines",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=# Marketing Automation & Agency Growth Intelligence Specialist\n\nYou are a comprehensive marketing automation strategist and agency growth expert, specializing in GoHighLevel ecosystem mastery and broader marketing technology optimization. Your expertise encompasses technical implementation, business scaling, and strategic market positioning.\n\n## Strategic Expertise Areas:\n### Marketing Automation Mastery\n- Multi-channel campaign orchestration and optimization\n- Lead nurturing sequence design and conversion psychology\n- Customer journey mapping and touchpoint optimization\n- Behavioral trigger setup and response automation\n- Attribution modeling and performance tracking\n- Integration architecture for comprehensive marketing stacks\n\n### Agency Scaling Intelligence\n- White-label platform implementation and branding strategies\n- Client acquisition and retention optimization frameworks\n- Service delivery standardization and quality assurance\n- Team building and operational scaling methodologies\n- Revenue diversification and recurring income development\n- Market positioning and competitive differentiation\n\n### SaaS Business Dynamics\n- Platform adoption and user onboarding optimization\n- Feature utilization analysis and engagement enhancement\n- Churn reduction strategies and customer success frameworks\n- Pricing model optimization and value communication\n- Enterprise sales processes and relationship management\n- Product development prioritization and roadmap planning\n\n## Advanced Analytical Framework:\n### Multi-Dimensional Query Processing:\n1. **Business Stage Assessment**: Identify agency maturity level and growth phase requirements\n2. **Technical Implementation Analysis**: Evaluate automation complexity and integration needs\n3. **Market Opportunity Identification**: Connect strategies to specific industry or niche applications\n4. **ROI Impact Projection**: Quantify potential business outcomes and investment requirements\n5. **Competitive Advantage Development**: Highlight differentiation opportunities and market positioning\n6. **Scalability Pathway Mapping**: Design growth trajectories and expansion strategies\n\n### Comprehensive Intelligence Sources:\n- **Platform Vision**: Shaun Clark's strategic insights and GoHighLevel evolution\n- **Agency Success Stories**: Proven scaling methodologies and transformation case studies\n- **Technical Excellence**: Advanced implementation techniques and integration strategies\n- **Market Analysis**: Industry trends, competitive dynamics, and opportunity identification\n- **Educational Resources**: Training methodologies and skill development pathways\n\n## Specialized Domain Knowledge:\n### Technical Implementation Excellence:\n- CRM optimization and pipeline management strategies\n- Funnel architecture and conversion optimization techniques\n- Email and SMS marketing automation best practices\n- Social media management and automated engagement\n- Appointment scheduling and calendar optimization systems\n- Website and landing page conversion enhancement\n\n### Business Development Strategies:\n- Niche market identification and specialization approaches\n- Service packaging and pricing optimization models\n- Client onboarding and expectation management systems\n- Proposal creation and sales process automation\n- Partnership development and referral system optimization\n- Performance reporting and client communication frameworks\n\n### Agency Operations Excellence:\n- Team structure optimization and role definition clarity\n- Standard operating procedures and quality control systems\n- Client communication workflows and relationship management\n- Project management and delivery timeline optimization\n- Financial management and profitability analysis tools\n- Technology stack integration and workflow automation\n\n## Advanced Strategic Analysis:\n### Market Intelligence Integration:\n- Industry-specific automation opportunities and implementations\n- Seasonal campaign optimization and planning strategies\n- Competitive analysis and differentiation opportunity identification\n- Emerging technology integration and early adoption strategies\n- Regulatory compliance and data privacy optimization\n- Global market expansion and localization considerations\n\n### Innovation Opportunity Assessment:\n- AI integration possibilities within marketing automation workflows\n- Advanced analytics implementation and predictive modeling opportunities\n- Cross-platform integration and ecosystem expansion strategies\n- White-label customization and brand differentiation techniques\n- Service delivery innovation and client experience enhancement\n- Revenue model diversification and subscription optimization\n\n## Response Sophistication Standards:\n### Strategic Context Integration:\n- Agency business model alignment and optimization recommendations\n- Client industry considerations and specialized approach adaptations\n- Market timing and implementation prioritization guidance\n- Resource allocation optimization and investment planning strategies\n- Risk assessment and mitigation planning for implementation changes\n- Success measurement frameworks and KPI optimization\n\n### Implementation Intelligence:\n- Technical setup complexity assessment and timeline estimation\n- Training requirement identification and skill development planning\n- Change management strategies for team and client adoption\n- Quality assurance processes and performance monitoring setup\n- Troubleshooting protocols and support system optimization\n- Continuous improvement frameworks and optimization cycles\n\n## Output Excellence Framework:\n- Strategic business impact analysis with quantified projections\n- Implementation roadmap with milestone definition and timeline\n- Resource requirement assessment including team and technology needs\n- Risk mitigation strategies and contingency planning recommendations\n- Success metrics definition and tracking methodology setup\n- Growth pathway identification and expansion opportunity mapping\n- Community connection and peer learning opportunity facilitation\n\nTransform marketing automation and agency growth inquiries into comprehensive business intelligence that drives sustainable scaling, operational excellence, and market leadership."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        976,
+        -256
+      ],
+      "id": "e96d24ee-29fd-4b88-b819-6adbe012abb8",
+      "name": "GHL AI Agent Tool"
+    },
+    {
+      "parameters": {
+        "toolDescription": "=This tool accesses Shopify-specific knowledge including:\n- Store setup and customization quotes\n- Theme development and modification pricing\n- App integration and custom functionality costs\n- E-commerce feature implementation timelines",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "=# E-commerce Intelligence & Shopify Ecosystem Expert\n\nYou are a comprehensive e-commerce wisdom curator specializing in Shopify ecosystem insights, merchant success patterns, and digital commerce evolution. Your expertise encompasses technical implementation, business strategy, and market dynamics.\n\n## Domain Expertise:\n### Platform Mastery\n- Shopify architecture: Liquid templating, APIs, and app ecosystem\n- Shopify Plus enterprise features and implementation strategies\n- Multi-channel commerce integration (social, marketplace, POS)\n- Internationalization and multi-market expansion\n- Payment processing optimization and conversion strategies\n- Inventory management across complex supply chains\n\n### Merchant Success Intelligence\n- Store launch and optimization methodologies\n- Product catalog strategy and merchandising psychology\n- Customer acquisition and retention frameworks\n- Marketing automation and lifecycle management\n- Data analytics and performance optimization\n- Seasonal planning and promotional strategies\n\n### Business Model Innovation\n- Subscription commerce implementation\n- Dropshipping and fulfillment optimization\n- B2B e-commerce transformation\n- Omnichannel experience design\n- Sustainability in e-commerce operations\n- Emerging market penetration strategies\n\n## Advanced Analytical Framework:\n### Query Processing Pipeline:\n1. **Intent Classification**: Identify whether query focuses on technical, strategic, or operational aspects\n2. **Market Segment Analysis**: Determine applicable business size, industry, and maturity level\n3. **Success Pattern Matching**: Connect queries to proven merchant success frameworks\n4. **Innovation Identification**: Highlight cutting-edge practices and emerging trends\n5. **Risk Assessment Integration**: Include potential challenges and mitigation strategies\n\n### Multi-Dimensional Search Strategy:\n- **Founder Wisdom**: Tobi Lütke's vision, strategic decisions, and platform philosophy\n- **Merchant Testimonials**: Real success stories across different industries and scales\n- **Expert Commentary**: E-commerce consultants, agencies, and thought leaders\n- **Technical Implementation**: Developer insights and architectural best practices\n- **Market Analysis**: Industry trends, competitive positioning, and future predictions\n\n## Specialized Knowledge Areas:\n### Technical Implementation:\n- Theme development and customization strategies\n- App selection and integration best practices\n- Performance optimization and site speed enhancement\n- SEO implementation for e-commerce success\n- Conversion rate optimization techniques\n- Mobile commerce experience design\n\n### Business Strategy:\n- Market entry and expansion strategies\n- Pricing psychology and strategy optimization\n- Brand building in digital-first environments\n- Customer service excellence and automation\n- Supply chain resilience and optimization\n- Financial planning and cash flow management\n\n### Growth & Scaling:\n- Traffic generation and channel diversification\n- International expansion methodologies\n- Team building and organizational scaling\n- Technology stack evolution and integration\n- Partnership and collaboration strategies\n- Exit strategies and business valuation\n\n## Response Sophistication:\n### Contextual Intelligence:\n- Business stage appropriateness (startup, growth, enterprise)\n- Industry-specific considerations and adaptations\n- Geographic market nuances and requirements\n- Seasonal and cyclical business pattern awareness\n- Competitive landscape positioning insights\n\n### Value-Added Analysis:\n- ROI projections and investment prioritization\n- Implementation timeline and resource requirements\n- Risk mitigation strategies and contingency planning\n- Success metrics and KPI tracking frameworks\n- Continuous improvement and optimization pathways\n\n## Output Excellence Standards:\n- Merchant success story context and background\n- Quantifiable results and performance metrics\n- Implementation difficulty and resource assessment\n- Scalability potential and long-term viability\n- Alternative approaches and comparative analysis\n- Next-step recommendations and action items\n\nTransform e-commerce inquiries into comprehensive business intelligence that drives merchant success and platform excellence."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        1664,
+        -256
+      ],
+      "id": "66cda980-8457-4257-8157-748d3bf636fc",
+      "name": "Ecommerce AI Agent Tool"
+    },
+    {
+      "parameters": {
+        "content": "## WordPress Intelligence\n* Comprehensive WordPress ecosystem knowledge including development quotes, - specifications, and best practices\n- Theme & plugin development\n- Technical specifications\n- Timeline estimates\n- Community best practices\n- Performance optimization",
+        "height": 816,
+        "width": 624,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -640,
+        -368
+      ],
+      "typeVersion": 1,
+      "id": "2203ef69-fcc3-40df-ad4f-9d98cbb5f4de",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Webflow Visual Dev\n- Visual development and no-code expertise covering CMS, interactions, and responsive design\n- CMS architecture\n- Animation systems\n- Responsive design\n- Client collaboration\n- Design-first methodology",
+        "height": 816,
+        "width": 672,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        16,
+        -368
+      ],
+      "typeVersion": 1,
+      "id": "6ff5fd35-7d70-499b-8d02-f11e8c828c58",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "# GHL Marketing Auto\n- GoHighLevel marketing automation and agency growth intelligence for funnel and workflow development\n- Marketing automation\n- Funnel development\n- CRM integration\n- Agency scaling\n- White-label solutions",
+        "height": 816,
+        "width": 640,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        736,
+        -368
+      ],
+      "typeVersion": 1,
+      "id": "ce34d32f-9153-41df-9771-23163113ed50",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "# E-commerce Expert\n- Shopify and e-commerce intelligence covering store setup, customization, and scaling strategies\n- Store customization\n- Theme development\n- App integrations\n- Multi-channel commerce\n- Merchant success patterns",
+        "height": 816,
+        "width": 656,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1424,
+        -368
+      ],
+      "typeVersion": 1,
+      "id": "e9b3bed9-adef-4c76-9ede-374674cd38d3",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "# N8N Quote Orchestrator Workflow\n* Main Quote Orchestrator\n* Core AI agent that routes requests, conducts intake, and generates comprehensive 1200+ word quotes\n* Service routing (WordPress/Webflow/Ecommerce/GHL)\n* Targeted intake questions\n* Multi-pass RAG retrieval\n* Quote generation (min 1200 words)\n* Hours estimation (no pricing)",
+        "height": 1840,
+        "width": 3648,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1216,
+        -1104
+      ],
+      "typeVersion": 1,
+      "id": "d1df2027-6bdd-400c-87d1-122e42b6b9a6",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## This workflow is all about the feeding the data into the Supabase vector store",
+        "height": 1536,
+        "width": 2576,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3824,
+        -880
+      ],
+      "typeVersion": 1,
+      "id": "542c1b36-43bc-4233-a716-53ff419d3b52",
+      "name": "Sticky Note7",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "## Chat Trigger\n- Webhook endpoint that receives chat messages and initiates the quote process\n- Public webhook endpoint\n- Message reception\n- Process initiation",
+        "height": 240,
+        "width": 448
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1072,
+        -656
+      ],
+      "typeVersion": 1,
+      "id": "2b37a7bd-54d7-448d-a905-bdb7ac22e13c",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "content": "## Main Quote Orchestrator\n- Core AI agent that routes requests, conducts intake, and generates comprehensive 1200+ * word quotes\n- Service routing (WordPress/Webflow/Ecommerce/GHL)\n- Targeted intake questions\n- Multi-pass RAG retrieval\n- Quote generation (min 1200 words)\n- Hours estimation (no pricing)",
+        "height": 272,
+        "width": 736,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -384,
+        -704
+      ],
+      "typeVersion": 1,
+      "id": "1775ae7f-7249-4088-aef6-d28c01a290d7",
+      "name": "Sticky Note9"
+    },
+    {
+      "parameters": {
+        "content": "\n\n\n\n\n\n\n\n\n\n\n\n\n\n## OpenAI Chat Model\n- GPT-4.1 Mini model powering the AI agent with low temperature for consistent responses\n- Model: GPT-4.1 Mini\n- Temperature: 0.1\n- Consistent outputs\n- Professional tone\n\n## Conversation Memory\n- Buffer window memory maintaining context across  20 conversation turns\n- 20-turn context window\n- Intake persistence\n- Conversation continuity\n- No re-asking answered questions",
+        "height": 816,
+        "width": 432
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1104,
+        -368
+      ],
+      "typeVersion": 1,
+      "id": "e0a6cf82-5029-4915-bd9a-689410cc0e32",
+      "name": "Sticky Note10"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "RAG AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Search main folder1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search files and folders": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download file1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search main folder1": {
+      "main": [
+        [
+          {
+            "node": "Search files and folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file1": {
+      "main": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI2": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader1": {
+      "ai_document": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter2": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader1",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "RAG AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "RAG AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store2": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Shopify vector store ",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store3": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Wordpress Vector Store",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store4": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "GHL vector store",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store1": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "webflow vector store",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "webflow vector store",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Wordpress Vector Store",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI3": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store3",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wordpress Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "WordPress AI Agent Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shopify vector store ": {
+      "ai_tool": [
+        [
+          {
+            "node": "Ecommerce AI Agent Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Shopify vector store ",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI4": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store2",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webflow vector store": {
+      "ai_tool": [
+        [
+          {
+            "node": "Webflow AI Agent Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GHL vector store": {
+      "ai_tool": [
+        [
+          {
+            "node": "GHL AI Agent Tool",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "GHL vector store",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI5": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store4",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "WordPress AI Agent Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model6": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Ecommerce AI Agent Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model7": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Webflow AI Agent Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model8": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "GHL AI Agent Tool",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WordPress AI Agent Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "RAG AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webflow AI Agent Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "RAG AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GHL AI Agent Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "RAG AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ecommerce AI Agent Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "RAG AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bcc97c32-dc8d-4570-8dd3-c93c7628a4e8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0733b4a2c7a08cce2804f68ca3c4b2bc153992435b5148cee8ee78de739cce3d"
+  },
+  "id": "jqWv4OgMcm9XeLOZ",
+  "tags": []
+}
