@@ -63,15 +63,3 @@ This workflow performs **multi-step reasoning and routing**, ensuring that each 
 - **Webflow / WordPress / GHL** – Input sources and service routing  
 
 ---
-
-## 📈 Workflow Summary
-
-```mermaid
-flowchart TD
-    A[Quote Request Received] --> B[Identify Service Type]
-    B --> C[Intake Questions]
-    C --> D[Feed Data to Supabase Vector Store]
-    D --> E[Multi-Pass RAG Retrieval]
-    E --> F[AI Quote Generation (1200+ words)]
-    F --> G[Estimate Hours (No Pricing)]
-    G --> H[Assemble & Deliver Final Quote]
