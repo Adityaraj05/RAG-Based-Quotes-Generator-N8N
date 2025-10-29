@@ -1,55 +1,77 @@
-🧠 N8N Quote Orchestrator Workflow
-Overview
+# 🧠 N8N Quote Orchestrator Workflow
 
-The N8N Quote Orchestrator is an intelligent automation workflow that manages and streamlines the process of generating detailed, AI-assisted service quotes. It acts as the core orchestration layer, coordinating data intake, retrieval, and generation using AI and a Supabase vector store for advanced context management.
+## Overview
+The **N8N Quote Orchestrator** is an intelligent automation workflow designed to manage and streamline the generation of detailed, AI-assisted service quotes.  
+It acts as the **core orchestration layer**, coordinating data intake, retrieval, and AI-powered generation using a **Supabase vector store** for advanced context management.
 
-This workflow enables multi-step reasoning and routing, ensuring that each quote request is properly classified, enriched with contextual data, and expanded into a comprehensive, professional output.
+This workflow performs **multi-step reasoning and routing**, ensuring that each quote request is classified, contextually enriched, and expanded into a comprehensive, professional output.
 
-⚙️ Key Functional Components
-1. Request Routing & Intake
+![Workflow Screenshot](https://github.com/user-attachments/assets/39c211ac-4190-4d31-a0c1-f5641091ab95)
 
-Captures incoming quote requests from multiple service channels (WordPress, Webflow, Ecommerce, GHL, etc.).
+---
 
-Classifies the service type and routes the request to the correct processing branch.
+## ⚙️ Key Functional Components
 
-Conducts targeted intake questioning to collect detailed project requirements and objectives.
+### 1. Request Routing & Intake
+- Captures incoming quote requests from multiple service channels  
+  *(WordPress, Webflow, Ecommerce, GHL, etc.)*  
+- Classifies the service type and routes the request to the appropriate processing branch.  
+- Conducts **targeted intake questioning** to collect detailed project requirements and goals.
 
-2. Data Feeding into Supabase Vector Store
+---
 
-Extracts relevant data, documents, and historical quotes, embedding them into the Supabase vector database.
+### 2. Data Feeding into Supabase Vector Store
+- Extracts relevant documents, historical data, and context from quote submissions.  
+- Embeds all information into the **Supabase vector database** for efficient retrieval.  
+- Enables **multi-pass Retrieval-Augmented Generation (RAG)** by allowing semantic searches and contextual lookups.  
+- Continuously updates the vector store for improved AI performance and knowledge accuracy.
 
-Powers multi-pass Retrieval-Augmented Generation (RAG) by enabling semantic search and context retrieval.
+---
 
-Continuously updates the vector store for improved accuracy and knowledge depth over time.
+### 3. AI-Powered Quote Generation
+- Leverages retrieved vector data to produce **comprehensive 1200+ word quotes**.  
+- Ensures professional structure, contextual accuracy, and completeness.  
+- Includes **hours estimation (no pricing)** to support transparent project planning.  
 
-3. AI-Powered Quote Generation
+---
 
-Uses context retrieved from the Supabase vector store to generate comprehensive quotes (1200+ words).
+### 4. Multi-Pass RAG Retrieval Process
+- Executes multiple retrieval passes to refine context and improve precision.  
+- Incorporates prior client data, related projects, and contextual records to strengthen each generated quote.  
 
-Produces detailed, structured content with clear reasoning and professional tone.
+---
 
-Includes hours estimation (no pricing) to support transparent project planning.
+### 5. Output Assembly & Delivery
+- Combines generated content, retrieved data, and metadata into a unified quote document.  
+- Formats the final output for easy review, approval, or client delivery.
 
-4. Multi-Pass RAG Retrieval Process
+---
 
-Executes multiple retrieval passes to refine the context for better accuracy and completeness.
+## 🚀 Purpose & Benefits
+- **Automates** end-to-end quote generation.  
+- **Enhances accuracy** with semantic, vector-based retrieval.  
+- **Saves time** through intelligent intake and routing automation.  
+- **Generates professional, long-form outputs** ideal for proposals and client communications.  
+- **Continuously improves** via iterative learning and data enrichment in Supabase.
 
-Leverages similar historical projects, client data, and contextual information to improve quality.
+---
 
-5. Output Assembly & Delivery
+## 🧩 Tech Stack
+- **n8n** – Workflow orchestration and automation engine  
+- **Supabase Vector Store** – Context storage and semantic retrieval  
+- **OpenAI / GPT Agent** – AI reasoning and long-form quote generation  
+- **Webflow / WordPress / GHL** – Input sources and service routing  
 
-Aggregates AI-generated text, retrieved insights, and metadata.
+---
 
-Formats the final quote into a cohesive, professional document ready for review or client delivery.
+## 📈 Workflow Summary
 
-🚀 Purpose & Benefits
-
-Automates complex quote generation with minimal manual input.
-
-Enhances accuracy through context-rich vector retrieval.
-
-Saves time by streamlining intake, routing, and generation.
-
-Produces long-form, high-quality quotes suitable for client proposals.
-
-Improves continuously via feedback and dynamic vector store enrichment.
+```mermaid
+flowchart TD
+    A[Quote Request Received] --> B[Identify Service Type]
+    B --> C[Intake Questions]
+    C --> D[Feed Data to Supabase Vector Store]
+    D --> E[Multi-Pass RAG Retrieval]
+    E --> F[AI Quote Generation (1200+ words)]
+    F --> G[Estimate Hours (No Pricing)]
+    G --> H[Assemble & Deliver Final Quote]
